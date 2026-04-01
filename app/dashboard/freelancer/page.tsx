@@ -3,6 +3,7 @@
 import { useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { DashboardNav } from '@/components/DashboardNav';
+import Image from 'next/image';
 
 export default function FreelancerDashboard() {
   const { user } = useUser();
@@ -55,10 +56,12 @@ export default function FreelancerDashboard() {
             <div className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex items-center space-x-4 mb-6">
                 <div className="flex-shrink-0">
-                  <img
+                  <Image
                     className="h-16 w-16 rounded-full object-cover"
                     src="https://ui-avatars.com/api/?name=BIM+Specialist&background=random&bold=true"
                     alt="Profile"
+                    width={64}
+                    height={64}
                   />
                 </div>
                 <div>
