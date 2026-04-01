@@ -1,0 +1,442 @@
+// This is your Prisma schema file,
+// learn more about it in: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum UserRole {
+  FREELANCER
+  CLIENT
+  ADMIN
+}
+
+enum AccountType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ProposalStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  DISPUTED
+  CANCELLED
+}
+
+enum ReviewType {
+  CLIENT_TO_FREELANCER
+  FREELANCER_TO_CLIENT
+}
+
+enum FreelancerLevel {
+  BEGINNER
+  PRO
+  EXPERT
+}
+
+// Models
+model User {
+  id           String   @id @default(cuid())
+  clerkId      String   @unique
+  email        String
+  name         String
+  role         UserRole @default(FREELANCER)
+  accountType  AccountType @default(INDIVIDUAL)
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  freelancerProfile FreelancerProfile?
+  clientProfile     ClientProfile?
+  subscription      Subscription?
+  notifications     Notification[]
+  clientContracts   Contract[]      @relation("ContractClient")
+  freelancerContracts Contract[]    @relation("ContractFreelancer")
+  reviews           Review[]
+  sentInvitations   Invitation[]    @relation("InvitationSender")
+  receivedInvitations Invitation[]  @relation("InvitationReceiver")
+  documents         UserDocument[]
+  searchConfig      SearchConfig?
+  reports           Report[]         @relation("UserReport")
+}
+
+model FreelancerProfile {
+  id                   String           @id @default(cuid())
+  userId               String           @unique
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Basic info
+  title                String?
+  bio                  String?
+  location             String?
+  website              String?
+  
+  // Stats
+  hourlyRate           Decimal?         @db.Decimal(10, 2)
+  completedContracts    Int              @default(0)
+  rating               Decimal?         @db.Decimal(3, 2) @default(0)
+  reviewCount          Int              @default(0)
+  level                FreelancerLevel  @default(BEGINNER)
+  isVerified           Boolean          @default(false)
+  
+  // Skills
+  skills               String[]
+  
+  // Status
+  status               String           @default("DRAFT")
+  
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  // Relations
+  portfolio            PortfolioItem[]
+  proposals           Proposal[]
+  education           Education[]
+  experience          Experience[]
+}
+
+model ClientProfile {
+  id                   String       @id @default(cuid())
+  userId               String       @unique
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Company info
+  companyName          String?
+  companyDescription   String?
+  companySize          String?
+  industry             String?
+  
+  // Contact info
+  website              String?
+  phone                String?
+  
+  // Location
+  country              String?
+  city                 String?
+  
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  // Relations
+  jobs                 Job[]
+  reports              Report[]         @relation("ClientReport")
+  invitations          Invitation[]      @relation("ClientInvitation")
+}
+
+model Subscription {
+  id           String           @id @default(cuid())
+  userId       String           @unique
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments     Payment[]        @relation("SubscriptionPayment")
+  
+  plan         SubscriptionPlan @default(FREE)
+  isActive     Boolean          @default(true)
+  autoRenew    Boolean          @default(false)
+  
+  // Limits
+  jobPostsLeft Int              @default(1)
+  
+  // Dates
+  startsAt     DateTime         @default(now())
+  expiresAt    DateTime?
+  cancelledAt  DateTime?
+  
+  // Payment info
+  youkassaSubId String?
+  paymentId     String?
+  
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model Job {
+  id                   String     @id @default(cuid())
+  clientId             String
+  client               ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  // Job details
+  title                String
+  description          String
+  category             String
+  skills               String[]
+  
+  // Budget
+  budgetType           String     // "fixed" or "hourly"
+  budgetMin            Decimal?   @db.Decimal(10, 2)
+  budgetMax            Decimal?   @db.Decimal(10, 2)
+  
+  // Timeline
+  durationDays         Int?
+  deadline             DateTime?
+  
+  // Location
+  locationType         String     // "remote", "onsite", "hybrid"
+  location             String?
+  
+  // Status
+  status               JobStatus  @default(DRAFT)
+  
+  // Payment
+  publicationPaymentId String?
+  
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  // Relations
+  proposals           Proposal[]
+  invitations         Invitation[]
+  reports             Report[]         @relation("JobReport")
+  payment             Payment?         @relation("JobPayment")
+}
+
+model Proposal {
+  id           String         @id @default(cuid())
+  jobId        String
+  job          Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  freelancerId String
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  // Proposal details
+  coverLetter  String
+  price        Decimal        @db.Decimal(10, 2)
+  durationDays Int
+  
+  status       ProposalStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  // Relations
+  contracts    Contract[]
+  
+  @@unique([jobId, freelancerId])
+}
+
+model Contract {
+  id           String         @id @default(cuid())
+  proposalId   String?        @unique
+  invitationId String?        @unique
+  proposal     Proposal?      @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  invitation   Invitation?    @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+  
+  clientId     String
+  client       User           @relation("ContractClient", fields: [clientId], references: [id], onDelete: Cascade)
+  freelancerId String
+  freelancer   User           @relation("ContractFreelancer", fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  amount       Decimal        @db.Decimal(10, 2)
+  description  String?
+  
+  status       ContractStatus @default(DRAFT)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  reviews     Review[]
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  contractId   String
+  contract     Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  rating       Int        // 1-5
+  comment      String?
+  type         ReviewType
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  @@unique([contractId, authorId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String
+  title     String
+  body      String
+  link      String?
+  
+  isRead    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+}
+
+model PortfolioItem {
+  id           String   @id @default(cuid())
+  freelancerId String
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  title        String
+  description  String
+  images       String[] // URLs
+  technologies String[]
+  projectUrl   String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Education {
+  id           String   @id @default(cuid())
+  freelancerId String
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  institution  String
+  degree       String
+  field        String
+  startDate    DateTime
+  endDate      DateTime?
+  
+  createdAt    DateTime @default(now())
+}
+
+model Experience {
+  id           String   @id @default(cuid())
+  freelancerId String
+  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
+  
+  company      String
+  position     String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime?
+  
+  createdAt    DateTime @default(now())
+}
+
+// Приглашения фрилансеров (ADR-004, data-flow.md)
+model Invitation {
+  id           String         @id @default(cuid())
+  receiverId   String         // ID фрилансера
+  senderId     String         // ID заказчика
+  clientId     String?        // ID клиента (для обратной связи)
+  jobId        String?        // Если приглашение к конкретной вакансии
+  message      String
+  
+  status       String         @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
+  expiresAt    DateTime       @default(dbgenerated("(now() + interval '7 days')"))
+  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  receiver     User           @relation("InvitationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender       User           @relation("InvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
+  client       ClientProfile? @relation("ClientInvitation", fields: [clientId], references: [id], onDelete: SetNull)
+  job          Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  contracts    Contract[]
+  
+  @@unique([receiverId, jobId])
+}
+
+// Платежи (payment-flow.md)
+model Payment {
+  id                String   @id @default(cuid())
+  youkassaPaymentId String?  @unique
+  youkassaSubId     String?  // Для рекуррентных платежей
+  subscriptionId    String?  // Связь с подпиской
+  
+  purpose           String   // SUBSCRIPTION, JOB_PUBLICATION
+  amount            Decimal  @db.Decimal(10, 2)
+  status            String   @default("PENDING") // PENDING, PAID, FAILED, REFUNDED
+  refundNote        String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  subscription      Subscription?   @relation("SubscriptionPayment", fields: [subscriptionId], references: [id], onDelete: SetNull)
+  job              Job?             @relation("JobPayment", fields: [id], references: [id], onDelete: SetNull)
+}
+
+// Жалобы и споры (moderation-flow.md)
+model Report {
+  id          String   @id @default(cuid())
+  targetId    String   // ID пользователя или вакансии
+  userId      String?  // ID пользователя, если жалоба на пользователя
+  jobId       String?  // Если жалоба на вакансию
+  reason      String   // FRAUD, SPAM, INAPPROPRIATE_CONTENT
+  description String
+  
+  status      String   @default("OPEN") // OPEN, UNDER_REVIEW, RESOLVED, DISMISSED
+  resolution  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User?     @relation("UserReport", fields: [userId], references: [id], onDelete: SetNull)
+  client      ClientProfile? @relation("ClientReport", fields: [id], references: [id], onDelete: SetNull)
+  job         Job?     @relation("JobReport", fields: [jobId], references: [id], onDelete: SetNull)
+}
+
+// Документы для верификации (moderation-flow.md)
+model UserDocument {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  documentType String   // passport, inn, bim_certificate, autodesk_cert
+  fileUrl      String
+  fileName     String
+  fileSize     Int
+  
+  status       String   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  reviewNote   String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Конфигурация поиска (ADR-005)
+model SearchConfig {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  searchVector  String?  // tsvector для PostgreSQL FTS
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
