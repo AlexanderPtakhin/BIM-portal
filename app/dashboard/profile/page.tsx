@@ -1,8 +1,8 @@
 'use client';
 
+import { DashboardLayout } from '@/components/DashboardLayout';
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
-import { DashboardLayout } from '@/components/DashboardLayout';
 import {
   Card,
   CardContent,
@@ -103,7 +103,9 @@ export default function ProfilePage() {
                   <Upload className="mr-2 h-4 w-4" />
                   Загрузить фото
                 </Button>
-                <p className="text-sm text-gray-500 mt-1">JPG, PNG до 5MB</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  JPG, PNG до 5MB
+                </p>
               </div>
             </div>
 
@@ -163,7 +165,9 @@ export default function ProfilePage() {
               <Textarea
                 id="bio"
                 value={profile.bio}
-                onChange={e => setProfile({ ...profile, bio: e.target.value })}
+                onChange={e =>
+                  setProfile({ ...profile, bio: e.target.value })
+                }
                 placeholder="Расскажите о своем опыте и специализации..."
                 rows={4}
               />
@@ -308,7 +312,11 @@ export default function ProfilePage() {
 
             <div>
               <Label htmlFor="phone">Телефон</Label>
-              <Input id="phone" type="tel" placeholder="+7 (999) 123-45-67" />
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+7 (999) 123-45-67"
+              />
             </div>
 
             <div>

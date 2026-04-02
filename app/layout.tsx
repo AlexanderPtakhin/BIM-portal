@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { AuthHeader } from '@/components/AuthHeader';
+import { TRPCProvider } from '@/trpc/providers';
+import { DashboardNav } from '@/components/DashboardNav';
 import './globals.css';
 
 const geistSans = Geist({
@@ -27,17 +28,19 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html
-        lang="ru"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">
-          <TooltipProvider>
-            <AuthHeader />
-            <main className="flex-1">{children}</main>
-          </TooltipProvider>
-        </body>
-      </html>
+      <TRPCProvider>
+        <html
+          lang="ru"
+          className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        >
+          <body className="min-h-full flex flex-col">
+            <TooltipProvider>
+              <DashboardNav />
+              <main className="flex-1">{children}</main>
+            </TooltipProvider>
+          </body>
+        </html>
+      </TRPCProvider>
     </ClerkProvider>
   );
 }

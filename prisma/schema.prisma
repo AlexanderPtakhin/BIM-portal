@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -10,25 +7,367 @@ datasource db {
   provider = "postgresql"
 }
 
-// Enums
-enum UserRole {
-  FREELANCER
-  CLIENT
-  ADMIN
+model ClientProfile {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String        @unique @db.Uuid
+  company_name        String?
+  company_description String?
+  company_size        String?
+  industry            String?
+  website             String?
+  phone               String?
+  country             String?
+  city                String?
+  created_at          DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime      @default(now()) @db.Timestamptz(6)
+  users               users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  invitations         invitations[]
+  jobs                Job[]
+
+  @@map("client_profiles")
 }
 
-enum AccountType {
+model Job {
+  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  client_id              String        @db.Uuid
+  title                  String
+  description            String
+  category               String
+  skills                 String[]
+  budget_type            String
+  budget_min             Decimal?      @db.Decimal(10, 2)
+  budget_max             Decimal?      @db.Decimal(10, 2)
+  duration_days          Int?
+  deadline               DateTime?     @db.Timestamptz(6)
+  location_type          String
+  location               String?
+  status                 job_status    @default(DRAFT)
+  publication_payment_id String?
+  created_at             DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime      @default(now()) @db.Timestamptz(6)
+  invitations            invitations[]
+  client_profiles        ClientProfile @relation(fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  proposals              proposals[]
+  reports                reports[]
+
+  @@index([category], map: "idx_jobs_category")
+  @@index([client_id], map: "idx_jobs_client_id")
+  @@index([created_at(sort: Desc)], map: "idx_jobs_created_at")
+  @@index([status], map: "idx_jobs_status")
+  @@map("jobs")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model contracts {
+  id                                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  proposal_id                          String?         @unique @db.Uuid
+  client_id                            String          @db.Uuid
+  freelancer_id                        String          @db.Uuid
+  amount                               Decimal         @db.Decimal(10, 2)
+  description                          String?
+  status                               contract_status @default(DRAFT)
+  started_at                           DateTime?       @db.Timestamptz(6)
+  completed_at                         DateTime?       @db.Timestamptz(6)
+  created_at                           DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime        @default(now()) @db.Timestamptz(6)
+  invitation_id                        String?         @unique @db.Uuid
+  users_contracts_client_idTousers     users           @relation("contracts_client_idTousers", fields: [client_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_contracts_freelancer_idTousers users           @relation("contracts_freelancer_idTousers", fields: [freelancer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  proposals                            proposals?      @relation(fields: [proposal_id], references: [id], onUpdate: NoAction)
+  invitations                          invitations?    @relation(fields: [invitation_id], references: [id], onUpdate: NoAction, map: "fk_invitation")
+  reviews                              reviews[]
+
+  @@index([client_id], map: "idx_contracts_client_id")
+  @@index([freelancer_id], map: "idx_contracts_freelancer_id")
+  @@index([status], map: "idx_contracts_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model education {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  freelancer_id       String              @db.Uuid
+  institution         String
+  degree              String
+  field               String
+  start_date          DateTime            @db.Timestamptz(6)
+  end_date            DateTime?           @db.Timestamptz(6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  freelancer_profiles freelancer_profiles @relation(fields: [freelancer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model experience {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  freelancer_id       String              @db.Uuid
+  company             String
+  position            String
+  description         String?
+  start_date          DateTime            @db.Timestamptz(6)
+  end_date            DateTime?           @db.Timestamptz(6)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  freelancer_profiles freelancer_profiles @relation(fields: [freelancer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model freelancer_profiles {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String                   @unique @db.Uuid
+  title               String?
+  bio                 String?
+  location            String?
+  website             String?
+  hourly_rate         Decimal?                 @db.Decimal(10, 2)
+  completed_contracts Int                      @default(0)
+  rating              Decimal                  @default(0.0) @db.Decimal(3, 2)
+  review_count        Int                      @default(0)
+  level               freelancer_level         @default(BEGINNER)
+  is_verified         Boolean                  @default(false)
+  skills              String[]
+  status              String                   @default("DRAFT")
+  created_at          DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime                 @default(now()) @db.Timestamptz(6)
+  search_vector       Unsupported("tsvector")?
+  education           education[]
+  experience          experience[]
+  users               users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  portfolio_items     portfolio_items[]
+  proposals           proposals[]
+
+  @@index([search_vector], map: "idx_freelancer_profiles_search", type: Gin)
+}
+
+model invitations {
+  id                                   String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  receiver_id                          String         @db.Uuid
+  sender_id                            String         @db.Uuid
+  client_id                            String?        @db.Uuid
+  job_id                               String?        @db.Uuid
+  message                              String
+  status                               String         @default("PENDING")
+  expires_at                           DateTime       @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
+  created_at                           DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime       @default(now()) @db.Timestamptz(6)
+  contracts                            contracts?
+  client_profiles                      ClientProfile? @relation(fields: [client_id], references: [id], onUpdate: NoAction)
+  jobs                                 Job?           @relation(fields: [job_id], references: [id], onUpdate: NoAction)
+  users_invitations_receiver_idTousers users          @relation("invitations_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_invitations_sender_idTousers   users          @relation("invitations_sender_idTousers", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([receiver_id, job_id])
+  @@index([expires_at], map: "idx_invitations_expires_at")
+  @@index([receiver_id], map: "idx_invitations_receiver")
+  @@index([sender_id], map: "idx_invitations_sender")
+  @@index([status], map: "idx_invitations_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notifications {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  type       String
+  title      String
+  body       String
+  link       String?
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_notifications_created_at")
+  @@index([is_read], map: "idx_notifications_is_read")
+  @@index([user_id], map: "idx_notifications_user_id")
+}
+
+model payments {
+  id                                                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  youkassa_payment_id                                   String?         @unique
+  youkassa_sub_id                                       String?
+  subscription_id                                       String?         @db.Uuid
+  purpose                                               String
+  amount                                                Decimal         @db.Decimal(10, 2)
+  status                                                String          @default("PENDING")
+  refund_note                                           String?
+  created_at                                            DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                            DateTime        @default(now()) @db.Timestamptz(6)
+  subscriptions_payments_subscription_idTosubscriptions subscriptions?  @relation("payments_subscription_idTosubscriptions", fields: [subscription_id], references: [id], onUpdate: NoAction)
+  subscriptions_subscriptions_payment_idTopayments      subscriptions[] @relation("subscriptions_payment_idTopayments")
+
+  @@index([status], map: "idx_payments_status")
+  @@index([subscription_id], map: "idx_payments_subscription")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model portfolio_items {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  freelancer_id       String              @db.Uuid
+  title               String
+  description         String
+  images              String[]
+  technologies        String[]
+  project_url         String?
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  freelancer_profiles freelancer_profiles @relation(fields: [freelancer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model proposals {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_id              String              @db.Uuid
+  freelancer_id       String              @db.Uuid
+  cover_letter        String
+  price               Decimal             @db.Decimal(10, 2)
+  duration_days       Int
+  status              proposal_status     @default(PENDING)
+  created_at          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime            @default(now()) @db.Timestamptz(6)
+  contracts           contracts?
+  freelancer_profiles freelancer_profiles @relation(fields: [freelancer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  jobs                Job                 @relation(fields: [job_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([job_id, freelancer_id])
+  @@index([freelancer_id], map: "idx_proposals_freelancer_id")
+  @@index([job_id], map: "idx_proposals_job_id")
+  @@index([status], map: "idx_proposals_status")
+}
+
+model reports {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_id   String    @db.Uuid
+  user_id     String?   @db.Uuid
+  job_id      String?   @db.Uuid
+  reason      String
+  description String
+  status      String    @default("OPEN")
+  resolution  String?
+  resolved_by String?   @db.Uuid
+  resolved_at DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @db.Timestamptz(6)
+  jobs        Job?      @relation(fields: [job_id], references: [id], onUpdate: NoAction)
+  users       users?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([job_id], map: "idx_reports_job")
+  @@index([status], map: "idx_reports_status")
+  @@index([target_id], map: "idx_reports_target")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model reviews {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contract_id String      @db.Uuid
+  author_id   String      @db.Uuid
+  rating      Int
+  comment     String?
+  type        review_type
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime    @default(now()) @db.Timestamptz(6)
+  users       users       @relation(fields: [author_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  contracts   contracts   @relation(fields: [contract_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([contract_id, author_id])
+  @@index([author_id], map: "idx_reviews_author_id")
+  @@index([contract_id], map: "idx_reviews_contract_id")
+}
+
+model search_configs {
+  id            String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String                   @unique @db.Uuid
+  search_vector Unsupported("tsvector")?
+  created_at    DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime                 @default(now()) @db.Timestamptz(6)
+  users         users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([search_vector], map: "idx_search_configs_search", type: Gin)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subscriptions {
+  id                                               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                                          String            @unique @db.Uuid
+  plan                                             subscription_plan @default(FREE)
+  is_active                                        Boolean           @default(true)
+  auto_renew                                       Boolean           @default(false)
+  job_posts_left                                   Int               @default(1)
+  starts_at                                        DateTime          @default(now()) @db.Timestamptz(6)
+  expires_at                                       DateTime?         @db.Timestamptz(6)
+  cancelled_at                                     DateTime?         @db.Timestamptz(6)
+  youkassa_sub_id                                  String?
+  created_at                                       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                       DateTime          @default(now()) @db.Timestamptz(6)
+  payment_id                                       String?           @db.Uuid
+  payments_payments_subscription_idTosubscriptions payments[]        @relation("payments_subscription_idTosubscriptions")
+  payments_subscriptions_payment_idTopayments      payments?         @relation("subscriptions_payment_idTopayments", fields: [payment_id], references: [id], onUpdate: NoAction, map: "fk_payment")
+  users                                            users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model user_documents {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String    @db.Uuid
+  document_type String
+  file_url      String
+  file_name     String
+  file_size     Int
+  status        String    @default("PENDING")
+  review_note   String?
+  reviewed_by   String?   @db.Uuid
+  reviewed_at   DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  users         users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([status], map: "idx_user_documents_status")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerk_id                                   String               @unique
+  email                                      String
+  name                                       String
+  role                                       user_role            @default(FREELANCER)
+  account_type                               account_type         @default(INDIVIDUAL)
+  is_blocked                                 Boolean              @default(false)
+  created_at                                 DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                 DateTime             @default(now()) @db.Timestamptz(6)
+  client_profiles                            ClientProfile?
+  contracts_contracts_client_idTousers       contracts[]          @relation("contracts_client_idTousers")
+  contracts_contracts_freelancer_idTousers   contracts[]          @relation("contracts_freelancer_idTousers")
+  freelancer_profiles                        freelancer_profiles?
+  invitations_invitations_receiver_idTousers invitations[]        @relation("invitations_receiver_idTousers")
+  invitations_invitations_sender_idTousers   invitations[]        @relation("invitations_sender_idTousers")
+  notifications                              notifications[]
+  reports                                    reports[]
+  reviews                                    reviews[]
+  search_configs                             search_configs?
+  subscriptions                              subscriptions?
+  user_documents                             user_documents[]
+
+  @@index([clerk_id], map: "idx_users_clerk_id")
+  @@index([email], map: "idx_users_email")
+  @@index([role], map: "idx_users_role")
+}
+
+enum account_type {
   INDIVIDUAL
   COMPANY
 }
 
-enum SubscriptionPlan {
-  FREE
-  PRO
-  PREMIUM
+enum contract_status {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  DISPUTED
+  CANCELLED
 }
 
-enum JobStatus {
+enum freelancer_level {
+  BEGINNER
+  PRO
+  EXPERT
+}
+
+enum job_status {
   DRAFT
   PENDING
   PUBLISHED
@@ -37,406 +376,25 @@ enum JobStatus {
   CANCELLED
 }
 
-enum ProposalStatus {
+enum proposal_status {
   PENDING
   ACCEPTED
   REJECTED
 }
 
-enum ContractStatus {
-  DRAFT
-  ACTIVE
-  COMPLETED
-  DISPUTED
-  CANCELLED
-}
-
-enum ReviewType {
+enum review_type {
   CLIENT_TO_FREELANCER
   FREELANCER_TO_CLIENT
 }
 
-enum FreelancerLevel {
-  BEGINNER
+enum subscription_plan {
+  FREE
   PRO
-  EXPERT
+  PREMIUM
 }
 
-// Models
-model User {
-  id           String   @id @default(cuid())
-  clerkId      String   @unique
-  email        String
-  name         String
-  role         UserRole @default(FREELANCER)
-  accountType  AccountType @default(INDIVIDUAL)
-  isBlocked    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Relations
-  freelancerProfile FreelancerProfile?
-  clientProfile     ClientProfile?
-  subscription      Subscription?
-  notifications     Notification[]
-  clientContracts   Contract[]      @relation("ContractClient")
-  freelancerContracts Contract[]    @relation("ContractFreelancer")
-  reviews           Review[]
-  sentInvitations   Invitation[]    @relation("InvitationSender")
-  receivedInvitations Invitation[]  @relation("InvitationReceiver")
-  documents         UserDocument[]
-  searchConfig      SearchConfig?
-  reports           Report[]         @relation("UserReport")
-}
-
-model FreelancerProfile {
-  id                   String           @id @default(cuid())
-  userId               String           @unique
-  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Basic info
-  title                String?
-  bio                  String?
-  location             String?
-  website              String?
-  
-  // Stats
-  hourlyRate           Decimal?         @db.Decimal(10, 2)
-  completedContracts    Int              @default(0)
-  rating               Decimal?         @db.Decimal(3, 2) @default(0)
-  reviewCount          Int              @default(0)
-  level                FreelancerLevel  @default(BEGINNER)
-  isVerified           Boolean          @default(false)
-  
-  // Skills
-  skills               String[]
-  
-  // Status
-  status               String           @default("DRAFT")
-  
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-
-  // Relations
-  portfolio            PortfolioItem[]
-  proposals           Proposal[]
-  education           Education[]
-  experience          Experience[]
-}
-
-model ClientProfile {
-  id                   String       @id @default(cuid())
-  userId               String       @unique
-  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Company info
-  companyName          String?
-  companyDescription   String?
-  companySize          String?
-  industry             String?
-  
-  // Contact info
-  website              String?
-  phone                String?
-  
-  // Location
-  country              String?
-  city                 String?
-  
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
-
-  // Relations
-  jobs                 Job[]
-  reports              Report[]         @relation("ClientReport")
-  invitations          Invitation[]      @relation("ClientInvitation")
-}
-
-model Subscription {
-  id           String           @id @default(cuid())
-  userId       String           @unique
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payments     Payment[]        @relation("SubscriptionPayment")
-  
-  plan         SubscriptionPlan @default(FREE)
-  isActive     Boolean          @default(true)
-  autoRenew    Boolean          @default(false)
-  
-  // Limits
-  jobPostsLeft Int              @default(1)
-  
-  // Dates
-  startsAt     DateTime         @default(now())
-  expiresAt    DateTime?
-  cancelledAt  DateTime?
-  
-  // Payment info
-  youkassaSubId String?
-  paymentId     String?
-  
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-}
-
-model Job {
-  id                   String     @id @default(cuid())
-  clientId             String
-  client               ClientProfile @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  // Job details
-  title                String
-  description          String
-  category             String
-  skills               String[]
-  
-  // Budget
-  budgetType           String     // "fixed" or "hourly"
-  budgetMin            Decimal?   @db.Decimal(10, 2)
-  budgetMax            Decimal?   @db.Decimal(10, 2)
-  
-  // Timeline
-  durationDays         Int?
-  deadline             DateTime?
-  
-  // Location
-  locationType         String     // "remote", "onsite", "hybrid"
-  location             String?
-  
-  // Status
-  status               JobStatus  @default(DRAFT)
-  
-  // Payment
-  publicationPaymentId String?
-  
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-
-  // Relations
-  proposals           Proposal[]
-  invitations         Invitation[]
-  reports             Report[]         @relation("JobReport")
-  payment             Payment?         @relation("JobPayment")
-}
-
-model Proposal {
-  id           String         @id @default(cuid())
-  jobId        String
-  job          Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  freelancerId String
-  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  
-  // Proposal details
-  coverLetter  String
-  price        Decimal        @db.Decimal(10, 2)
-  durationDays Int
-  
-  status       ProposalStatus @default(PENDING)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  
-  // Relations
-  contracts    Contract[]
-  
-  @@unique([jobId, freelancerId])
-}
-
-model Contract {
-  id           String         @id @default(cuid())
-  proposalId   String?        @unique
-  invitationId String?        @unique
-  proposal     Proposal?      @relation(fields: [proposalId], references: [id], onDelete: SetNull)
-  invitation   Invitation?    @relation(fields: [invitationId], references: [id], onDelete: SetNull)
-  
-  clientId     String
-  client       User           @relation("ContractClient", fields: [clientId], references: [id], onDelete: Cascade)
-  freelancerId String
-  freelancer   User           @relation("ContractFreelancer", fields: [freelancerId], references: [id], onDelete: Cascade)
-  
-  amount       Decimal        @db.Decimal(10, 2)
-  description  String?
-  
-  status       ContractStatus @default(DRAFT)
-  startedAt    DateTime?
-  completedAt  DateTime?
-  
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  // Relations
-  reviews     Review[]
-}
-
-model Review {
-  id           String     @id @default(cuid())
-  contractId   String
-  contract     Contract   @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  authorId     String
-  author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  
-  rating       Int        // 1-5
-  comment      String?
-  type         ReviewType
-  
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  
-  @@unique([contractId, authorId])
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type      String
-  title     String
-  body      String
-  link      String?
-  
-  isRead    Boolean  @default(false)
-  
-  createdAt DateTime @default(now())
-}
-
-model PortfolioItem {
-  id           String   @id @default(cuid())
-  freelancerId String
-  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  
-  title        String
-  description  String
-  images       String[] // URLs
-  technologies String[]
-  projectUrl   String?
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-model Education {
-  id           String   @id @default(cuid())
-  freelancerId String
-  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  
-  institution  String
-  degree       String
-  field        String
-  startDate    DateTime
-  endDate      DateTime?
-  
-  createdAt    DateTime @default(now())
-}
-
-model Experience {
-  id           String   @id @default(cuid())
-  freelancerId String
-  freelancer   FreelancerProfile @relation(fields: [freelancerId], references: [id], onDelete: Cascade)
-  
-  company      String
-  position     String
-  description  String?
-  startDate    DateTime
-  endDate      DateTime?
-  
-  createdAt    DateTime @default(now())
-}
-
-// Приглашения фрилансеров (ADR-004, data-flow.md)
-model Invitation {
-  id           String         @id @default(cuid())
-  receiverId   String         // ID фрилансера
-  senderId     String         // ID заказчика
-  clientId     String?        // ID клиента (для обратной связи)
-  jobId        String?        // Если приглашение к конкретной вакансии
-  message      String
-  
-  status       String         @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
-  expiresAt    DateTime       @default(dbgenerated("(now() + interval '7 days')"))
-  
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  // Relations
-  receiver     User           @relation("InvitationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  sender       User           @relation("InvitationSender", fields: [senderId], references: [id], onDelete: Cascade)
-  client       ClientProfile? @relation("ClientInvitation", fields: [clientId], references: [id], onDelete: SetNull)
-  job          Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
-  contracts    Contract[]
-  
-  @@unique([receiverId, jobId])
-}
-
-// Платежи (payment-flow.md)
-model Payment {
-  id                String   @id @default(cuid())
-  youkassaPaymentId String?  @unique
-  youkassaSubId     String?  // Для рекуррентных платежей
-  subscriptionId    String?  // Связь с подпиской
-  
-  purpose           String   // SUBSCRIPTION, JOB_PUBLICATION
-  amount            Decimal  @db.Decimal(10, 2)
-  status            String   @default("PENDING") // PENDING, PAID, FAILED, REFUNDED
-  refundNote        String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  subscription      Subscription?   @relation("SubscriptionPayment", fields: [subscriptionId], references: [id], onDelete: SetNull)
-  job              Job?             @relation("JobPayment", fields: [id], references: [id], onDelete: SetNull)
-}
-
-// Жалобы и споры (moderation-flow.md)
-model Report {
-  id          String   @id @default(cuid())
-  targetId    String   // ID пользователя или вакансии
-  userId      String?  // ID пользователя, если жалоба на пользователя
-  jobId       String?  // Если жалоба на вакансию
-  reason      String   // FRAUD, SPAM, INAPPROPRIATE_CONTENT
-  description String
-  
-  status      String   @default("OPEN") // OPEN, UNDER_REVIEW, RESOLVED, DISMISSED
-  resolution  String?
-  resolvedBy  String?
-  resolvedAt  DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  user        User?     @relation("UserReport", fields: [userId], references: [id], onDelete: SetNull)
-  client      ClientProfile? @relation("ClientReport", fields: [id], references: [id], onDelete: SetNull)
-  job         Job?     @relation("JobReport", fields: [jobId], references: [id], onDelete: SetNull)
-}
-
-// Документы для верификации (moderation-flow.md)
-model UserDocument {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  documentType String   // passport, inn, bim_certificate, autodesk_cert
-  fileUrl      String
-  fileName     String
-  fileSize     Int
-  
-  status       String   @default("PENDING") // PENDING, VERIFIED, REJECTED
-  reviewNote   String?
-  reviewedBy   String?
-  reviewedAt   DateTime?
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-// Конфигурация поиска (ADR-005)
-model SearchConfig {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  searchVector  String?  // tsvector для PostgreSQL FTS
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+enum user_role {
+  FREELANCER
+  CLIENT
+  ADMIN
 }

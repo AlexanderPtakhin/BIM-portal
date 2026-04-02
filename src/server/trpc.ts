@@ -1,16 +1,23 @@
-import { initTRPC } from '@trpc/server'
-import { ZodError } from 'zod'
-import superjson from 'superjson'
-import { db } from './db'
+import { initTRPC } from '@trpc/server';
+import { ZodError } from 'zod';
+import superjson from 'superjson';
+import { db } from './db';
 
-export const createTRPCContext = async (opts: { req: Request }) => {
+export type Context = {
+  db: typeof db;
+  req: Request;
+};
+
+export const createTRPCContext = async (opts: {
+  req: Request;
+}): Promise<Context> => {
   return {
     db,
     ...opts,
-  }
-}
+  };
+};
 
-const t = initTRPC.create({
+const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
@@ -20,10 +27,10 @@ const t = initTRPC.create({
         zodError:
           error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
-    }
+    };
   },
-})
+});
 
-export const createTRPCRouter = t.router
-export const publicProcedure = t.procedure
-export const router = t.router
+export const createTRPCRouter = t.router;
+export const publicProcedure = t.procedure;
+export const router = t.router;

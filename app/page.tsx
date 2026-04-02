@@ -20,25 +20,13 @@ export default function Home() {
                   href="/sign-up"
                   className="bg-blue-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  Начать работу
+                  Начать как фрилансер
                 </Link>
                 <Link
-                  href="/jobs"
+                  href="/sign-in"
                   className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
                 >
-                  Найти специалиста
-                </Link>
-                <Link
-                  href="/api/jobs"
-                  className="bg-purple-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
-                >
-                  Все вакансии
-                </Link>
-                <Link
-                  href="/create-user"
-                  className="bg-red-600 text-white px-8 py-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
-                >
-                  Создать пользователя
+                  Войти в аккаунт
                 </Link>
               </div>
             </div>
